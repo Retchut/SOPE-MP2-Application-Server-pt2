@@ -35,13 +35,16 @@ void closePubFifo(void) {
 }
 
 int main(int argc, char *const argv[]) {
-  int nsecs;
+  int nsecs = 0;
+  int bufsz = 0;
   char *fifoname;
-  if (cmdParser(argc, argv, &nsecs, &fifoname) != 0) {
+  if (cmdParser(argc, argv, &nsecs, &bufsz, &fifoname) != 0) {
     exit(EXIT_FAILURE);
   }
 
-  // Setup detached threads
+  printf("nsecs: %d, bufsz: %d, fifoname: %s\n", nsecs, bufsz, fifoname);
+
+  /*// Setup detached threads
   pthread_attr_t detatched;
 
   if (pthread_attr_init(&detatched) != 0) {
@@ -95,5 +98,6 @@ int main(int argc, char *const argv[]) {
   // Destroy detached threads setup
   pthread_attr_destroy(&detatched);
 
-  pthread_exit(0);
+  pthread_exit(0);*/
+  exit(EXIT_SUCCESS);
 }
