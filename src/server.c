@@ -147,13 +147,14 @@ void pThreadFunc(void *taskArgs)
   rep_message.tskload = auxTaskArgs->infoArgsThProSave.tskload;
   rep_message.pid = getpid(); // ver melhor isto
   rep_message.tid = pthread_self();
-  rep_message.tskres = task(auxTaskArgs->infoArgsThProSave.tskload); // ver melhor isto
+  rep_message.tskres = task(auxTaskArgs->infoArgsThProSave.tskload); // ver melhor isto, biblioteca, certo?
 
   sem_t sem;
   sem_init(&sem, 0, 1);
+  sem_wait(&sem);
   while (auxTaskArgs->q.isEmpty() || auxTaskArgs->q->size == auxTaskArgs->maxBfSize)
   {
-    sem_wait(&sem);
+    
   }
 
   sem_post(&sem);
@@ -229,7 +230,7 @@ termina;
     //dar enqueue das tarefas
 
     //cria se uma thread para cada tarefa na queue
-    if (pthread_create(&tid, &detatched, (void *)(&cThreadFunc),
+    if (pthread_create(&tid, &detatched, (&pThreadFunc), taskArgs)
                        (void *)(&taskId)) != 0) {
       perror("Error creating threads");
       exit(EXIT_FAILURE);
