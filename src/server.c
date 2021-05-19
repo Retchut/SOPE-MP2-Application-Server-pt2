@@ -132,13 +132,7 @@ void consumerThreadFunc(){
   pthread_exit(0);
 }
 
-void cThreadFunc(void *taskId) {
-  //enviar pedido a biblioteca e por resultado no buffer
-/**
- * \brief Create threads
- * \param taskArgs task identifiers arguments that will be passed in create_thread function
- * \return 
- */
+
 void pThreadFunc(void *taskArgs)
 {
   
@@ -157,7 +151,7 @@ void pThreadFunc(void *taskArgs)
 
   sem_t sem;
   sem_init(&sem, 0, 1);
-  while (auxTaskArgs-> isEmpty() || auxTaskArgs->q->size == auxTaskArgs->maxBfSize)
+  while (auxTaskArgs->q.isEmpty() || auxTaskArgs->q->size == auxTaskArgs->maxBfSize)
   {
     sem_wait(&sem);
   }
