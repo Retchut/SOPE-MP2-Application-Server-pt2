@@ -2,23 +2,31 @@
 
 #include <errno.h>   // perror()
 #include <fcntl.h>   // open()
-#include <pthread.h>  // thread functions
-#include <stdbool.h>  // bool
+#include <pthread.h> // thread functions
+#include <stdbool.h> // bool
 #include <stdio.h>
 #include <stdlib.h>      // rand_r() atexit()
 #include <string.h>      // snprintf() strcat()
-#include <sys/inotify.h>  // inotify funcs
+#include <sys/inotify.h> // inotify funcs
 #include <sys/stat.h>    // open() mkfifo()
 #include <sys/types.h>   // CLOCK_REALTIME mkfifo()
 #include <time.h>        // clock functs
 #include <unistd.h>      // usleep()
-
+#include <semaphore.h>
 #include "./cmd_parser.h"
-#include "./common.h"  // message
+#include "./common.h" // message
 #include "./timer.h"
 
 #define FIFONAME_LEN 1000
 
+struct argsThPrd
+{
+  struct Message *infoArgsThProSave;
+
+  int maxBfSize;
+
+  struct queue q;
+};
 
 int pubFifoFD = -1;
 bool serverOpen = true;
@@ -126,20 +134,56 @@ void consumerThreadFunc(){
 
 void cThreadFunc(void *taskId) {
   //enviar pedido a biblioteca e por resultado no buffer
+/**
+ * \brief Create threads
+ * \param taskArgs task identifiers arguments that will be passed in create_thread function
+ * \return 
+ */
+void pThreadFunc(void *taskArgs)
+{
+  
+  // Set message struct
+
+  struct argsThPrd *auxTaskArgs = (struct argsThPrd *)taskArgs; // var auxiliar
+
+  Message rep_message;
+  memset(&rep_message, 0, sizeof(rep_message));
+
+  rep_message.rid = auxTaskArgs->infoArgsThProSave.rid;
+  rep_message.tskload = auxTaskArgs->infoArgsThProSave.tskload;
+  rep_message.pid = getpid(); // ver melhor isto
+  rep_message.tid = pthread_self();
+  rep_message.tskres = task(auxTaskArgs->infoArgsThProSave.tskload); // ver melhor isto
+
+  sem_t sem;
+  sem_init(&sem, 0, 1);
+  while (auxTaskArgs-> isEmpty() || auxTaskArgs->q->size == auxTaskArgs->maxBfSize)
+  {
+    sem_wait(&sem);
+  }
+
+  sem_post(&sem);
+
+  
+  enqueue(auxTaskArgs->q, rep_message);
+  
   pthread_exit(0);
 }
 
-void closePubFifo(void) {
+void closePubFifo(void)
+{
   /*if (close(pubFifoFD) == -1) {
     perror("Error closing public fifo");
   }*/
 }
 
-int main(int argc, char *const argv[]) {
+int main(int argc, char *const argv[])
+{
   int nsecs = 0;
   int bufsz = 0;
   char *fifoname;
-  if (cmdParser(argc, argv, &nsecs, &bufsz, &fifoname) != 0) {
+  if (cmdParser(argc, argv, &nsecs, &bufsz, &fifoname) != 0)
+  {
     exit(EXIT_FAILURE);
   }
 
@@ -182,6 +226,11 @@ int main(int argc, char *const argv[]) {
 
   while (getRemaining() > 0 && serverOpen) {  // Time remaining
 
+
+    os pedido do Cliente são recolhidos pelo thread principal s0 que cria threads
+Produtores s1, …, sn e lhes passa os pedidos; cada Produtor invoca a
+correspondente tarefa em B e coloca o resultado obtido no armazém; depois,
+termina;
 
     //dar enqueue das tarefas
 
