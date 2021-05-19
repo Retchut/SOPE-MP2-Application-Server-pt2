@@ -26,6 +26,7 @@ bool serverOpen = true;
 int consumer(Message message){
   bool openfifo=false;
   int privFifoFD;
+
   // Assemble fifoname
   char privFifoName[FIFONAME_LEN];
   snprintf(privFifoName, FIFONAME_LEN, "/tmp/%d.%ld", message.pid, message.tid);
@@ -37,8 +38,7 @@ int consumer(Message message){
       if (errno != EACCES && errno != ENOENT && errno != ENXIO) {
         printf("%ld ; %d ; %d ; %d ; %ld ; %d ; FAILD\n", getTime(), message.rid,
           message.tskload, message.pid, message.tid, message.tskres);
-        exit(EXIT_FAILURE);
-        //return 1;
+        return 1;
       }
     }
     else{
@@ -51,12 +51,11 @@ int consumer(Message message){
          message.tskload, message.pid, message.tid, message.tskres);
       if (unlink(privFifoName) == -1) {
         perror("Error unlinking private fifo");
-        //return 1;
       }
       return 2;
   }
 
-    // Set select
+  // Set select
   int writeReady = 0;
   fd_set rfds;
   struct timeval timeout;
@@ -76,7 +75,7 @@ int consumer(Message message){
     if (unlink(privFifoName) == -1) {
       perror("Error unlinking private fifo");
     }
-    pthread_exit(0);
+    return 2;
   } else if (writeReady == 0) {
     printf("%ld ; %d ; %d ; %d ; %ld ; %d ; 2LATE\n", getTime(), message.rid,
            message.tskload, message.pid, message.tid, message.tskres);
@@ -86,11 +85,9 @@ int consumer(Message message){
       perror("Error writing priv fifo");
       if (close(privFifoFD) == -1) {
         perror("Error closing private fifo");
-        //return 1;
       }
       if (unlink(privFifoName) == -1) {
         perror("Error unlinking private fifo");
-        //return 1;
       }
       return 1;
     }
@@ -99,22 +96,6 @@ int consumer(Message message){
         message.tskload, message.pid, message.tid, message.tskres);
     }
   }
-
-  /*if (openfifo){
-    if (write(privFifoFD, &message, sizeof(Message)) == -1) {
-      perror("Error writing to public fifo");
-      return 1;
-    }
-    printf("%ld ; %d ; %d ; %d ; %ld ; %d ; TSKEX\n", getTime(), message.rid,
-        message.tskload, message.pid, message.tid, message.tskres);
-  }
-
-  if (close(privFifoFD) == -1) {
-    perror("Error closing private fifo");
-  }
-  if (unlink(privFifoName) == -1) {
-    perror("Error unlinking private fifo");
-  }*/
   return 0;
 }
 
