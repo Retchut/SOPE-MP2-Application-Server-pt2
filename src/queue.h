@@ -3,7 +3,7 @@
 #include "common.h"
 
 typedef struct Node {
-  Message *msg;
+  Message *message;
   struct Node *next;
 } Node;
 
@@ -18,12 +18,10 @@ Queue *queue_init(unsigned int maxSize);
 
 void queue_destroy(Queue *queue);
 
-Node *queue_initNode(Message *msg);
+Node *queue_enqueue(Queue *queue, Message *message);
 
-Node *queue_enqueue(Queue *q, Message *msg);
+Message *queue_dequeue(Queue *queue);
 
-Message *queue_dequeue(Queue *q);
+bool queue_isFull(Queue *queue);
 
-bool queue_isFull(Queue *q);
-
-bool queue_isEmpty(Queue *q);
+bool queue_isEmpty(Queue *queue);

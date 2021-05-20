@@ -25,12 +25,13 @@ Queue *queue_init(unsigned int maxSize) {
 
 void queue_destroy(Queue *queue) {
   Message *msg = NULL;
-  while (queue->head != NULL) {
+  while (!queue_isEmpty(queue)) {
     msg = queue_dequeue(queue);
     free(msg);
   }
 
   free(queue);
+  queue = NULL;
   pthread_mutex_destroy(&queueMutex);
 }
 
@@ -41,20 +42,20 @@ Node *queue_initNode(Message *msg) {
     return NULL;
   }
 
-  node->msg = msg;
+  node->message = msg;
   node->next = NULL;
 
   return node;
 }
 
-Node *queue_enqueue(Queue *q, Message *msg) {
-  unsigned tmpsz = q->size;
+Node *queue_enqueue(Queue *queue, Message *msg) {
+  unsigned tmpsz = queue->size;
   pthread_mutex_lock(&queueMutex);
-  if (q->size + 1 <= q->maxSize) {
-    q->size++;
+  if (queue->size + 1 <= queue->maxSize) {
+    queue->size++;
   }
   pthread_mutex_unlock(&queueMutex);
-  if (q->size == tmpsz) {
+  if (queue->size == tmpsz) {
     fprintf(stderr, "Queue is full\n");
     return NULL;
   }
@@ -66,43 +67,43 @@ Node *queue_enqueue(Queue *q, Message *msg) {
   }
 
   // if there is a tail, connect to new node
-  if (q->tail != NULL) {
-    q->tail->next = node;
+  if (queue->tail != NULL) {
+    queue->tail->next = node;
   }
 
-  q->tail = node;
+  queue->tail = node;
 
   // if q is empty newnode becomes the head
-  if (q->head == NULL) {
-    q->head = node;
+  if (queue->head == NULL) {
+    queue->head = node;
   }
 
   return node;
 }
 
-Message *queue_dequeue(Queue *q) {
+Message *queue_dequeue(Queue *queue) {
   // check if q is empty
-  if (q->head == NULL) {
+  if (queue->head == NULL) {
     return NULL;
   }
 
   // save the head
-  Node *tmp = q->head;
+  Node *tmp = queue->head;
 
   // save the result to return
-  Message *result = tmp->msg;
+  Message *result = tmp->message;
 
   // removing from list and updating values
-  q->head = q->head->next;
+  queue->head = queue->head->next;
 
-  if (q->head == NULL) {
-    q->tail = NULL;
+  if (queue->head == NULL) {
+    queue->tail = NULL;
   }
 
   free(tmp);
 
   pthread_mutex_lock(&queueMutex);
-  q->size--;
+  queue->size--;
   pthread_mutex_unlock(&queueMutex);
 
   return result;

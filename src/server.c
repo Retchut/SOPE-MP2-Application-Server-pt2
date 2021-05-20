@@ -26,13 +26,14 @@ static char *pubFifoName;
 static int pubFifoFD = -1;
 static int pThreadNr = 0;
 static pthread_mutex_t pThreadNrMutex;
-// Queue storehouse;
+static Queue *queue = NULL;
 
-
-void destroyPThreadNrMutex(void){
-    if(pthread_mutex_destroy(&pThreadNrMutex) != 0)
+void destroyPThreadNrMutex(void) {
+  if (pthread_mutex_destroy(&pThreadNrMutex) != 0)
     perror("Error destroying pThreadNrMutex");
 }
+
+void destroyQueue(void) { queue_destroy(queue); }
 
 void closePubFifo(void) {
   if (close(pubFifoFD) == -1) {
@@ -70,8 +71,8 @@ void pThreadFunc(void *msg) {
 
   // terminar thread produtora
   pthread_mutex_lock(&pThreadNrMutex);
-      pThreadNr--;
-      pthread_mutex_unlock(&pThreadNrMutex);
+  pThreadNr--;
+  pthread_mutex_unlock(&pThreadNrMutex);
   pthread_exit(0);
 }
 
@@ -146,15 +147,14 @@ void cThreadFunc(void *arg) {
   int senderRet = 0;
   Message *message = NULL;
 
-  while (getRemaining() > 0 && pThreadNr > 0 && queue.isEmpty() && senderRet == 0) {
+  while (getRemaining() > 0 && pThreadNr > 0 && queue_isEmpty(queue) &&
+         senderRet == 0) {
     // mutex/semaforo
 
     senderRet = sender(message);
     free(message);
     message = NULL;
   }
-
-  // Destroy container
 
   pthread_exit(0);
 }
@@ -203,7 +203,14 @@ int main(int argc, char *const argv[]) {
   }
 
   // Queue
-  // initQueue(&storehouse);
+  if ((queue = queue_init(bufsz)) == NULL) {
+    exit(EXIT_FAILURE);
+  }
+
+  if (atexit(&destroyQueue) != 0) {
+    fprintf(stderr, "Cannot register destroyQueue to run at exit\n");
+    exit(EXIT_FAILURE);
+  }
 
   // Setup pThreadNrMutex
   pthread_mutex_init(&pThreadNrMutex, NULL);
@@ -225,12 +232,6 @@ int main(int argc, char *const argv[]) {
 
   // Read From pubFifo Setup
   int dataReady = 0;
-  fd_set rfds;
-  struct timeval timeout;
-  FD_ZERO(&rfds);
-  FD_SET(pubFifoFD, &rfds);
-  timeout.tv_usec = 0;
-
   Message *msg = NULL;
 
   // set start time in time.c
@@ -243,9 +244,18 @@ int main(int argc, char *const argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  while (getRemaining() > 0) { // Time remaining
-    // Read from public fifo
+  while (getRemaining() > 0) { // Time remaining needs + some extra time smaller
+                               // than in the consumer
+    
+    // Read From pubFifo Setup
+    fd_set rfds;
+    struct timeval timeout;
+    FD_ZERO(&rfds);
+    FD_SET(pubFifoFD, &rfds);
+    timeout.tv_usec = 0;
     timeout.tv_sec = getRemaining();
+    
+    // Read from public fifo
     dataReady = select(pubFifoFD + 1, &rfds, NULL, NULL, &timeout);
 
     if (dataReady == -1) {
