@@ -22,7 +22,7 @@
 
 #define FIFONAME_LEN 1000
 #define PTHREAD_ATTEMPTS 3
-#define EXTRA_SECS 5
+#define EXTRA_SECS 2
 
 static char *pubFifoName;
 static int pubFifoFD = -1;
@@ -138,8 +138,10 @@ void cThreadFunc(void *arg) {
 
   while(((getRemaining() + EXTRA_SECS) > 0 || pThreadNr > 0 || !(queue_isEmpty(queue)))) {
     message = queue_dequeue(queue);
-    sender(message);
-    free(message);
+    if(message != NULL){
+      sender(message);
+      free(message);
+    }
     message = NULL;
   }
 
@@ -152,7 +154,7 @@ int main(int argc, char *const argv[]) {
   if (cmdParser(argc, argv, &nsecs, &bufsz, &pubFifoName) != 0) {
     exit(EXIT_FAILURE);
   }
-
+  
   // Create fifo
   while (true) {
     if (mkfifo(pubFifoName, 0777) == -1) {
@@ -265,7 +267,6 @@ int main(int argc, char *const argv[]) {
       for(int i = 1; i <= PTHREAD_ATTEMPTS; i++){
         if (pthread_create(&tid, &detatched, (void *)(&pThreadFunc),
                           (void *)(&msg)) != 0) {
-          fprintf(stderr, "Attempt %d: ", i);
           perror("Error creating producer thread");
         }
         else{

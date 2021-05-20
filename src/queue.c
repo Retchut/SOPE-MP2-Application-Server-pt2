@@ -91,7 +91,8 @@ Message *queue_dequeue(Queue *queue) {
   Node *tmp = queue->head;
 
   // save the result to return
-  Message *result = tmp->message;
+  Message *result = malloc(sizeof(Message));
+  (*result) = (*(tmp->message));
 
   // removing from list and updating values
   queue->head = queue->head->next;
