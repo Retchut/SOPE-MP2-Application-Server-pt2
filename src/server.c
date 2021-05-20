@@ -21,6 +21,8 @@
 #include "timer.h"
 
 #define FIFONAME_LEN 1000
+#define PTHREAD_ATTEMPTS 3
+#define EXTRA_SECS 5
 
 static char *pubFifoName;
 static int pubFifoFD = -1;
@@ -56,27 +58,18 @@ void pThreadFunc(void *msg) {
            rcvdMsg->tskload, getpid(), pthread_self(), rcvdMsg->tskres);
   }
 
-  // semaphore
-  //         cliente fica bloqueado quando o armazem está vazio
-  //         produtor fica bloqueado quando o armazem está cheio
-  // mutex
-
-  // meter result no buffer armazém
-
-  // end mutex
-  // end semaphore
-
-  // notificar thread consumidora para que esta retire
-  //  valores do armazém e enviar ao cliente
+  // Add task result to warehouse
+  while(queue_enqueue(queue, rcvdMsg) == NULL){}
 
   // terminar thread produtora
   pthread_mutex_lock(&pThreadNrMutex);
   pThreadNr--;
   pthread_mutex_unlock(&pThreadNrMutex);
+
   pthread_exit(0);
 }
 
-int sender(Message *message) {
+void sender(Message *message) {
   int privFifoFD = -1;
 
   // Assemble fifoname
@@ -92,7 +85,7 @@ int sender(Message *message) {
   if (privFifoFD == -1) {
     printf("%ld ; %d ; %d ; %d ; %ld ; %d ; FAILD\n", getTime(), message->rid,
            message->tskload, message->pid, message->tid, message->tskres);
-    return 1;
+    return;
   }
 
   // Set select
@@ -111,15 +104,15 @@ int sender(Message *message) {
     if (close(privFifoFD) == -1) {
       perror("Error closing private fifo");
     }
-    return 1;
+    return;
   } else if (writeReady == 0) {
     fprintf(stderr, "TIMEOUT: Consumer Thread couldnt write to private fifo");
     if (close(privFifoFD) == -1) {
       perror("Error closing private fifo");
     }
-    return 1;
+    return;
   } else {
-    if (write(privFifoFD, &message, sizeof(Message)) == -1) {
+    if (write(privFifoFD, &(*message), sizeof(Message)) == -1) {
       printf("%ld ; %d ; %d ; %d ; %ld ; %d ; FAILD\n", getTime(), message->rid,
              message->tskload, message->pid, message->tid, message->tskres);
       perror("Error writing to private fifo");
@@ -138,19 +131,14 @@ int sender(Message *message) {
       }
     }
   }
-  return 0;
 }
 
 void cThreadFunc(void *arg) {
-  bool gotMessage = false;
-  int senderRet = 0;
   Message *message = NULL;
 
-  while (getRemaining() > 0 && pThreadNr > 0 && queue_isEmpty(queue) &&
-         senderRet == 0) {
-    // mutex/semaforo
-
-    senderRet = sender(message);
+  while(((getRemaining() + EXTRA_SECS) > 0 || pThreadNr > 0 || !(queue_isEmpty(queue)))) {
+    message = queue_dequeue(queue);
+    sender(message);
     free(message);
     message = NULL;
   }
@@ -164,8 +152,6 @@ int main(int argc, char *const argv[]) {
   if (cmdParser(argc, argv, &nsecs, &bufsz, &pubFifoName) != 0) {
     exit(EXIT_FAILURE);
   }
-
-  // printf("nsecs: %d, bufsz: %d, fifoname: %s\n", nsecs, bufsz, fifoname);
 
   // Create fifo
   while (true) {
@@ -215,6 +201,9 @@ int main(int argc, char *const argv[]) {
   pthread_mutex_init(&pThreadNrMutex, NULL);
   atexit(&destroyPThreadNrMutex);
 
+  //tid for all threads
+  pthread_t tid;
+
   // Setup detached threads
   pthread_attr_t detatched;
 
@@ -227,24 +216,19 @@ int main(int argc, char *const argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  pthread_t tid;
-
-  // Read From pubFifo Setup
-  int dataReady = 0;
-  Message *msg = NULL;
-
   // set start time in time.c
   setTimer(nsecs);
-
   // Consumer thread creation
   if (pthread_create(&tid, &detatched, (void *)(&cThreadFunc), NULL) != 0) {
     perror("Error creating consumer thread");
     pthread_attr_destroy(&detatched);
     exit(EXIT_FAILURE);
   }
+  // Read From pubFifo Setup
+  int dataReady = 0;
+  Message *msg = NULL;
 
-  while (getRemaining() > 0) { // Time remaining needs + some extra time smaller
-                               // than in the consumer
+  while ((getRemaining() + EXTRA_SECS) > 0) { // Time remaining needs + 5 extra seconds to give out 2LATEs
     
     // Read From pubFifo Setup
     fd_set rfds;
@@ -262,27 +246,37 @@ int main(int argc, char *const argv[]) {
       pthread_attr_destroy(&detatched);
       exit(EXIT_FAILURE); // also closes pub fifo
     } else if (dataReady == 0) {
-      break;
+      continue;
     } else {
       if ((msg = malloc(sizeof(Message))) == NULL) {
         perror("Error allocating memory to read message to");
         pthread_attr_destroy(&detatched);
         exit(EXIT_FAILURE); // also closes pub fifo and unlinks it
       }
-      if (read(pubFifoFD, &msg, sizeof(Message)) == -1) {
+      if (read(pubFifoFD, &(*msg), sizeof(Message)) == -1) {
         perror("Error reading from pub fifo");
         pthread_attr_destroy(&detatched);
-        exit(EXIT_FAILURE); // also closes pub fifo
+        exit(EXIT_FAILURE); // also closes pub fifo and unlinks it
       }
 
       pthread_mutex_lock(&pThreadNrMutex);
       pThreadNr++;
       pthread_mutex_unlock(&pThreadNrMutex);
-      if (pthread_create(&tid, &detatched, (void *)(&pThreadFunc),
-                         (void *)(&msg)) != 0) {
-        perror("Error creating producer thread");
-        pthread_attr_destroy(&detatched);
-        exit(EXIT_FAILURE);
+      for(int i = 1; i <= PTHREAD_ATTEMPTS; i++){
+        if (pthread_create(&tid, &detatched, (void *)(&pThreadFunc),
+                          (void *)(&msg)) != 0) {
+          fprintf(stderr, "Attempt %d: ", i);
+          perror("Error creating producer thread");
+        }
+        else{
+          break;
+        }
+        if(i == PTHREAD_ATTEMPTS){
+          pthread_mutex_lock(&pThreadNrMutex);
+          pThreadNr--;
+          pthread_mutex_unlock(&pThreadNrMutex);
+          free(msg);
+        }
       }
       msg = NULL;
     }

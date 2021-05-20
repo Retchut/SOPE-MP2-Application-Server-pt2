@@ -10,16 +10,16 @@ Queue *queue_init(unsigned int maxSize) {
   pthread_mutex_init(&queueMutex, NULL);
 
   Queue *q = malloc(sizeof(Queue));
-  if (q == NULL) {
-    perror("Failed creating queue");
-    return NULL;
+
+  if (q != NULL) {
+    q->head = NULL;
+    q->tail = NULL;
+    q->size = 0;
+    q->maxSize = maxSize;
+    return q;
   }
 
-  q->head = NULL;
-  q->tail = NULL;
-  q->size = 0;
-  q->maxSize = maxSize;
-
+  perror("Failed creating queue");
   return q;
 }
 
@@ -37,14 +37,14 @@ void queue_destroy(Queue *queue) {
 
 Node *queue_initNode(Message *msg) {
   Node *node = malloc(sizeof(Node));
-  if (node == NULL) {
-    perror("Failed creating node");
-    return NULL;
+
+  if (node != NULL) {
+    node->message = msg;
+    node->next = NULL;
+    return node;
   }
 
-  node->message = msg;
-  node->next = NULL;
-
+  perror("Failed creating node");
   return node;
 }
 
