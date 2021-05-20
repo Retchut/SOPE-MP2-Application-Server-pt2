@@ -49,16 +49,16 @@ Node *queue_initNode(Message *msg) {
 }
 
 Node *queue_enqueue(Queue *queue, Message *msg) {
-  unsigned tmpsz = queue->size;
-  pthread_mutex_lock(&queueMutex);
-  if (queue->size + 1 <= queue->maxSize) {
-    queue->size++;
-  }
-  pthread_mutex_unlock(&queueMutex);
-  if (queue->size == tmpsz) {
+  if (queue->size >= queue->maxSize) {
     fprintf(stderr, "Queue is full\n");
     return NULL;
   }
+  pthread_mutex_lock(&queueMutex);
+  // if (queue->size + 1 <= queue->maxSize) {
+  //   queue->size++;
+  // }
+  queue->size++;
+  pthread_mutex_unlock(&queueMutex);
 
   // create a new node
   Node *node = NULL;
