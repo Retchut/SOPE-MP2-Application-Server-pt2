@@ -13,12 +13,15 @@
 #include <time.h>        // clock functs
 #include <unistd.h>      // usleep()
 #include <semaphore.h>
-#include "./cmd_parser.h"
-#include "./common.h" // message
-#include "./timer.h"
+#include "cmd_parser.h"
+#include "common.h" // message
+#include "timer.h"
+#include "queue.h"
+
 
 #define FIFONAME_LEN 1000
 
+//TODO: remove this probably
 struct argsThPrd
 {
   struct Message *infoArgsThProSave;
@@ -30,6 +33,7 @@ struct argsThPrd
 
 int pubFifoFD = -1;
 bool serverOpen = true;
+Queue storehouse;
 
 int consumer(Message message){
   bool openfifo=false;
@@ -107,7 +111,7 @@ int consumer(Message message){
   return 0;
 }
 
-void consumerThreadFunc(){
+void cThreadFunc(void *arg){
   //queue buffer;
   int res;
   bool gotMessage = false;
@@ -133,21 +137,47 @@ void consumerThreadFunc(){
 }
 
 
-void pThreadFunc(void *taskArgs)
+void pThreadFunc(void *msg)
 {
+  Message *rcvdMsg = (Message *) msg;
+
+  int result = task(rcvdMsg->t);
+
+  //semaphore
+  //         cliente fica bloqueado quando o armazem está vazio 
+  //         produtor fica bloqueado quando o armazem está cheio
+  //mutex
+
+  //meter result no buffer armazém
+
+  //end mutex
+  //end semaphore
   
-  // Set message struct
 
-  struct argsThPrd *auxTaskArgs = (struct argsThPrd *)taskArgs; // var auxiliar
+  //notificar thread consumidora para que esta retire
+  //  valores do armazém e enviar ao cliente
 
-  Message rep_message;
-  memset(&rep_message, 0, sizeof(rep_message));
+  //terminar thread produtora
 
-  rep_message.rid = auxTaskArgs->infoArgsThProSave.rid;
-  rep_message.tskload = auxTaskArgs->infoArgsThProSave.tskload;
-  rep_message.pid = getpid(); // ver melhor isto
-  rep_message.tid = pthread_self();
-  rep_message.tskres = task(auxTaskArgs->infoArgsThProSave.tskload); // ver melhor isto, biblioteca, certo?
+
+  pthread_exit(0);
+
+
+
+
+  /*
+  // // Set message struct
+
+  // struct argsThPrd *auxTaskArgs = (struct argsThPrd *)taskArgs; // var auxiliar
+
+  // Message rep_message;
+  // memset(&rep_message, 0, sizeof(rep_message));
+
+  // rep_message.rid = auxTaskArgs->infoArgsThProSave.rid;
+  // rep_message.tskload = auxTaskArgs->infoArgsThProSave.tskload;
+  // rep_message.pid = getpid(); // ver melhor isto
+  // rep_message.tid = pthread_self();
+  // rep_message.tskres = task(auxTaskArgs->infoArgsThProSave.tskload); // ver melhor isto, biblioteca, certo?
 
   sem_t sem;
   sem_init(&sem, 0, 1);
@@ -159,21 +189,20 @@ void pThreadFunc(void *taskArgs)
 
   sem_post(&sem);
 
+
   
   enqueue(auxTaskArgs->q, rep_message);
-  
-  pthread_exit(0);
+  */
 }
 
 void closePubFifo(void)
 {
-  /*if (close(pubFifoFD) == -1) {
+  if (close(pubFifoFD) == -1) {
     perror("Error closing public fifo");
-  }*/
+  }
 }
 
-int main(int argc, char *const argv[])
-{
+int main(int argc, char *const argv[]) {
   int nsecs = 0;
   int bufsz = 0;
   char *fifoname;
@@ -182,9 +211,9 @@ int main(int argc, char *const argv[])
     exit(EXIT_FAILURE);
   }
 
-  printf("nsecs: %d, bufsz: %d, fifoname: %s\n", nsecs, bufsz, fifoname);
+  //printf("nsecs: %d, bufsz: %d, fifoname: %s\n", nsecs, bufsz, fifoname);
 
-  /*// Setup detached threads
+  // Setup detached threads
   pthread_attr_t detatched;
 
   if (pthread_attr_init(&detatched) != 0) {
@@ -198,51 +227,67 @@ int main(int argc, char *const argv[])
 
   pthread_t tid;
 
-  // TaskIds
-  int taskId = 0;
-
   // set start time in time.c
   setTimer(nsecs);
-
   
-  //create  public fifo
-  // Open public fifo
-  while (getRemaining() > 0 && pubFifoFD == -1) {
-    pubFifoFD = open(fifoname, O_WRONLY | O_NONBLOCK);
-    if (pubFifoFD == -1) {
-      if (errno != EACCES && errno != ENOENT && errno != ENXIO) {
-        perror("Error opening public fifo");
+  //create public fifo
+  pubFifoFD = open(fifoname, O_RDONLY | O_CREAT | O_TRUNC, S_IRWXU | S_IRWXG | S_IRWXO);
+  if (pubFifoFD == -1) {
+    perror("Error opening public fifo");
+    exit(EXIT_FAILURE);
+  }
+  atexit(&closePubFifo);
+
+  // Queue 
+  initQueue(&storehouse);
+
+  // Consumer thread creation
+  if (pthread_create(&tid, &detatched, (void *)(&cThreadFunc), NULL) != 0) {
+      perror("Error creating consumer thread");
+      pthread_attr_destroy(&detatched);
+      exit(EXIT_FAILURE);
+  }
+
+
+  int dataReady = 0;
+  Message msg;
+  memset(&msg, 0, sizeof(msg));
+  while (getRemaining() > 0) {  // Time remaining
+    // Read from public fifo
+    fd_set rfds;
+    struct timeval timeout;
+    FD_ZERO(&rfds);
+    FD_SET(pubFifoFD, &rfds);
+    timeout.tv_sec = getRemaining();
+    timeout.tv_usec = 0;
+    memset(&msg, 0, sizeof(msg));
+    dataReady = select(pubFifoFD + 1, &rfds, NULL, NULL, &timeout);
+
+    if(dataReady == -1){
+      perror("Error waiting for public FIFO");
+      pthread_attr_destroy(&detatched);
+      exit(EXIT_FAILURE); //also closes pub fifo
+    }
+    else if(dataReady == 0){
+      break;
+    }
+    else{
+      if(read(pubFifoFD, &msg, sizeof(msg)) == -1){
+        perror("Error reading from pub fifo");
+        pthread_attr_destroy(&detatched);
+        exit(EXIT_FAILURE); //also closes pub fifo
+      }
+
+      if(pthread_create(&tid, &detatched, (void *)(&pThreadFunc), (void *) (&msg) != 0)){
+        perror("Error creating producer thread");
+        pthread_attr_destroy(&detatched);
         exit(EXIT_FAILURE);
       }
     }
   }
 
-  atexit(&closePubFifo);
-
-  while (getRemaining() > 0 && serverOpen) {  // Time remaining
-
-
-    os pedido do Cliente são recolhidos pelo thread principal s0 que cria threads
-Produtores s1, …, sn e lhes passa os pedidos; cada Produtor invoca a
-correspondente tarefa em B e coloca o resultado obtido no armazém; depois,
-termina;
-
-    //dar enqueue das tarefas
-
-    //cria se uma thread para cada tarefa na queue
-    if (pthread_create(&tid, &detatched, (&pThreadFunc), taskArgs)
-                       (void *)(&taskId)) != 0) {
-      perror("Error creating threads");
-      exit(EXIT_FAILURE);
-    }
-
-    //thread consumidora tira resultado do buffer e comunica com o client via fifo
-
-  }
-
   // Destroy detached threads setup
   pthread_attr_destroy(&detatched);
 
-  pthread_exit(0);*/
-  exit(EXIT_SUCCESS);
+  pthread_exit(0);
 }

@@ -1,6 +1,6 @@
 all: s c
 
-s: server.c cmd_parser.c delay.h delay.c lib.o lib.h
+s: delay.h delay.c server.c cmd_parser.c lib.o lib.h
 	gcc -Wall -DDELAY=100 -pthread -o s server.c cmd_parser.c 
 
 c: client.c common.h

@@ -3,25 +3,29 @@
 #include <stdlib.h>
 #include "./common.h"
 
-void init_queue(queue *q){
+void initQueue(Queue *q){
     q->head = NULL;
     q->tail = NULL;
     q->size = 0;
 }
 
-int isEmpty(queue* q)
+void initNode(Node* newNode, Message *item){
+    newnode->value = item;
+    newnode->next = NULL;
+}
+
+int isEmpty(Queue* q)
 {
     return (q->size == 0);
 }
  
 
-int enqueue(queue* q, Message* item)
+int enqueue(Queue* q, Message* item)
 {
     //create a new node
-    node* newnode = malloc(sizeof(node));
+    Node* newnode = malloc(sizeof(Node));
     if (newnode == NULL) {return 1;}
-    newnode->value = item;
-    newnode->next = NULL;
+    initNode(newnode, item);
     //if there is a tail, connect to new node
     if(q->tail != NULL){
         q->tail->next = newnode;
@@ -36,12 +40,12 @@ int enqueue(queue* q, Message* item)
 }
  
 
-Message* dequeue(queue* q)
+Message* dequeue(Queue* q)
 {
     //check if q is empty
     if(q->head == NULL ){return NULL;}
     //save the head    
-    node * tmp = q->head;
+    Node * tmp = q->head;
     //save the result to return
     Message* result = tmp->value;
     //removing from list and updating values
