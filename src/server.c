@@ -142,7 +142,6 @@ int sender(Message *message) {
 }
 
 void cThreadFunc(void *arg) {
-  // queue buffer
   bool gotMessage = false;
   int senderRet = 0;
   Message *message = NULL;
@@ -267,9 +266,6 @@ int main(int argc, char *const argv[]) {
     } else {
       if ((msg = malloc(sizeof(Message))) == NULL) {
         perror("Error allocating memory to read message to");
-        // Should tell other pthreads/cthread to free their messages ->
-        // Try later to make static alloc and copy to a variable
-        // inside pthread/cthread (Mem leak when program fails)
         pthread_attr_destroy(&detatched);
         exit(EXIT_FAILURE); // also closes pub fifo and unlinks it
       }
