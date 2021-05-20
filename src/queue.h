@@ -1,21 +1,24 @@
- typedef struct Node {
-    Message* value;
-    struct Node *next;
+#include "common.h"
+
+typedef struct Node {
+    Message* msg;
+    Node* next;
 } Node;
 
 typedef struct Queue{
     Node *head;
     Node *tail;
     unsigned size;
+    unsigned int maxSize;
 } Queue;
 
 
-void initQueue(Queue *q);
+Queue* initQueue(unsigned int maxSize);
 
-void initNode(Node* newNode, Message *item);
+Node* initNode(Message *msg);
 
-int isEmpty(Queue* q);
- 
-int enqueue(Queue* q, Message* item);
+Node *enqueue(Queue *q, Message *msg);
  
 Message* dequeue(Queue* q);
+
+bool isEmpty(Queue* q);
