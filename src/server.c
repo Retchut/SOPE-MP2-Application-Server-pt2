@@ -1,15 +1,10 @@
 // COPYRIGHT 2021 Flávio Lobo Vaz, José Costa, Mário Travassos, Tomás Fidalgo
 
-#include "cmd_parser.h"
-#include "common.h" // message
-#include "lib.h"
-#include "queue.h"
-#include "timer.h"
-#include <errno.h>   // perror()
-#include <fcntl.h>   // open()
-#include <pthread.h> // thread functions
-#include <semaphore.h>
-#include <stdbool.h> // bool
+#include <errno.h>     // perror()
+#include <fcntl.h>     // open()
+#include <pthread.h>   // thread functions
+#include <semaphore.h> // semaphore functs
+#include <stdbool.h>   // bool
 #include <stdio.h>
 #include <stdlib.h>      // rand_r() atexit()
 #include <string.h>      // snprintf() strcat()
@@ -19,11 +14,25 @@
 #include <time.h>        // clock functs
 #include <unistd.h>      // usleep()
 
+#include "cmd_parser.h"
+#include "common.h" // message
+#include "lib.h"
+#include "queue.h"
+#include "timer.h"
+
 #define FIFONAME_LEN 1000
 
-char *pubFifoName;
-int pubFifoFD = -1;
+static char *pubFifoName;
+static int pubFifoFD = -1;
+static int pThreadNr = 0;
+static pthread_mutex_t pThreadNrMutex;
 // Queue storehouse;
+
+
+void destroyPThreadNrMutex(void){
+    if(pthread_mutex_destroy(&pThreadNrMutex) != 0)
+    perror("Error destroying pThreadNrMutex");
+}
 
 void closePubFifo(void) {
   if (close(pubFifoFD) == -1) {
@@ -60,7 +69,9 @@ void pThreadFunc(void *msg) {
   //  valores do armazém e enviar ao cliente
 
   // terminar thread produtora
-
+  pthread_mutex_lock(&pThreadNrMutex);
+      pThreadNr--;
+      pthread_mutex_unlock(&pThreadNrMutex);
   pthread_exit(0);
 }
 
@@ -135,7 +146,7 @@ void cThreadFunc(void *arg) {
   int senderRet = 0;
   Message *message = NULL;
 
-  while (getRemaining() > 0 && senderRet == 0) {
+  while (getRemaining() > 0 && pThreadNr > 0 && queue.isEmpty() && senderRet == 0) {
     // mutex/semaforo
 
     senderRet = sender(message);
@@ -193,6 +204,10 @@ int main(int argc, char *const argv[]) {
 
   // Queue
   // initQueue(&storehouse);
+
+  // Setup pThreadNrMutex
+  pthread_mutex_init(&pThreadNrMutex, NULL);
+  atexit(&destroyPThreadNrMutex);
 
   // Setup detached threads
   pthread_attr_t detatched;
@@ -254,6 +269,9 @@ int main(int argc, char *const argv[]) {
         exit(EXIT_FAILURE); // also closes pub fifo
       }
 
+      pthread_mutex_lock(&pThreadNrMutex);
+      pThreadNr++;
+      pthread_mutex_unlock(&pThreadNrMutex);
       if (pthread_create(&tid, &detatched, (void *)(&pThreadFunc),
                          (void *)(&msg)) != 0) {
         perror("Error creating producer thread");
