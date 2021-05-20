@@ -1,2 +1,5 @@
 .vscode
 src/s
+*.o
+*/c
+*/s
