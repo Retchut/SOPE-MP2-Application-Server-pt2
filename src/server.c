@@ -108,11 +108,12 @@ int sender(Message *message) {
     return 1;
   } else {
     if (write(privFifoFD, &message, sizeof(Message)) == -1) {
+      printf("%ld ; %d ; %d ; %d ; %ld ; %d ; FAILD\n", getTime(), message->rid,
+             message->tskload, message->pid, message->tid, message->tskres);
       perror("Error writing to private fifo");
       if (close(privFifoFD) == -1) {
         perror("Error closing private fifo");
       }
-      return 1;
     } else {
       if (message->tskres == -1) {
         printf("%ld ; %d ; %d ; %d ; %ld ; %d ; 2LATE\n", getTime(),
