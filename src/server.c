@@ -231,7 +231,8 @@ int main(int argc, char *const argv[]) {
   setTimer(nsecs);
   
   //create public fifo
-  pubFifoFD = open(fifoname, O_RDONLY | O_CREAT | O_TRUNC, S_IRWXU | S_IRWXG | S_IRWXO);
+  // mkfifo
+  pubFifoFD = open(fifoname, O_RDONLY);
   if (pubFifoFD == -1) {
     perror("Error opening public fifo");
     exit(EXIT_FAILURE);
