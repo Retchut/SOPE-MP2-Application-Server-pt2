@@ -1,6 +1,6 @@
 // COPYRIGHT 2021 Flávio Lobo Vaz, José Costa, Mário Travassos, Tomás Fidalgo
 
-#include "./timer.h"
+#include "../src/timer.h"
 
 #include <stdint.h>
 #include <time.h>

@@ -11,7 +11,8 @@ void printUsage(const char *programName) {
   fprintf(stderr, "Usage: %s <-t nsecs> [-l bufsz] <fifoname>\n", programName);
 }
 
-int cmdParser(int argc, char * const argv[], int *nsecs, int *bufsz, char **fifoname) {
+int cmdParser(int argc, char * const argv[],
+    int *nsecs, int *bufsz, char **fifoname) {
   if (argc < 3 && argc > 4) {
     fprintf(stderr, "Incorrect number of arguments\n");
     printUsage(argv[0]);
@@ -37,7 +38,7 @@ int cmdParser(int argc, char * const argv[], int *nsecs, int *bufsz, char **fifo
     }
   }
 
-  if(!tOpt){
+  if (!tOpt) {
     printUsage(argv[0]);
     return 1;
   }

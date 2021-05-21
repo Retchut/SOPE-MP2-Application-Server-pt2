@@ -82,7 +82,7 @@ void *pThreadFunc(void *msg) {
 }
 
 void sender(Message *message) {
-  int privFifoFD = -1;
+  int privFifoFD;
 
   // Assemble fifoname
   char privFifoName[FIFONAME_LEN];
@@ -155,12 +155,13 @@ void sender(Message *message) {
 }
 
 void *cThreadFunc() {
-  bool nThread = true;
+  bool nThread;
   pthread_mutex_lock(&pThreadNrMutex);
   nThread = pThreadNr > 0;
   pthread_mutex_unlock(&pThreadNrMutex);
 
-  while (getServerRemaining() + 3 * EXTRA_SECS > 0 || nThread || !queue_isEmpty(queue)) {
+  while (getServerRemaining() + 3 * EXTRA_SECS > 0
+    || nThread || !queue_isEmpty(queue)) {
     Message message;
     struct timespec twait;
     twait.tv_nsec = 0;
