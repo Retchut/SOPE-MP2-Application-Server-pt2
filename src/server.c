@@ -35,12 +35,12 @@ void destroyPThreadNrMutex(void) {
     perror("Error destroying pThreadNrMutex");
 }
 
+void destroyQueue(void) { queue_destroy(queue); }
+
 void destroySem(void) {
   sem_destroy(&conSem);
   sem_destroy(&prodSem);
 }
-
-void destroyQueue(void) { queue_destroy(queue); }
 
 void closePubFifo(void) {
   if (close(pubFifoFD) == -1) {
@@ -225,6 +225,15 @@ int main(int argc, char *const argv[]) {
     exit(EXIT_FAILURE);
   }
 
+  // setup prodSem
+  sem_init(&prodSem, 0, bufsz);
+  sem_init(&conSem, 0, 0);
+
+  if (atexit(&destroySem) != 0) {
+    fprintf(stderr, "Cannot register Semdestroy to run at exit\n");
+    exit(EXIT_FAILURE);
+  }
+
   // Queue
   if ((queue = queue_init(bufsz)) == NULL) {
     exit(EXIT_FAILURE);
@@ -240,15 +249,6 @@ int main(int argc, char *const argv[]) {
 
   if (atexit(&destroyPThreadNrMutex) != 0) {
     fprintf(stderr, "Cannot register pthreadMutexNr to run at exit\n");
-    exit(EXIT_FAILURE);
-  }
-
-  // setup prodSem
-  sem_init(&prodSem, 0, bufsz);
-  sem_init(&conSem, 0, 0);
-
-  if (atexit(&destroySem) != 0) {
-    fprintf(stderr, "Cannot register Semdestroy to run at exit\n");
     exit(EXIT_FAILURE);
   }
 
