@@ -18,3 +18,5 @@ void setTimer(int duration) {
 int64_t getElapsed() { return getTime() - start; }
 
 int64_t getRemaining() { return end - getTime(); }
+
+int64_t getServerRemaining() { return end - getTime() + EXTRA_SECS; }

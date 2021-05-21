@@ -4,6 +4,8 @@
 #ifndef SRC_TIMER_H_
 #define SRC_TIMER_H_
 
+#define EXTRA_SECS 2
+
 /**
  * @brief Records the time the program started in in a global variable
  * @param duration - Duration of the program run
@@ -27,10 +29,18 @@ int64_t getTime();
 
 
 /**
- * @brief Returns the time reemaining in this program run
+ * @brief Returns the time remaining in this program's execution
  * @details The time comes in seconds
  * @return The current time remaining
  */
 int64_t getRemaining();
+
+
+/**
+ * @brief Returns the time remaining in this program's execution, including the extra seconds
+ * @details The time comes in seconds, and it includes the extra seconds
+ * @return The current time remaining
+ */
+int64_t getServerRemaining();
 
 #endif  // SRC_TIMER_H_

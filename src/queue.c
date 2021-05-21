@@ -26,6 +26,7 @@ Queue *queue_init(unsigned int maxSize) {
 void queue_destroy(Queue *queue) {
   Message *msg = NULL;
   while (!queue_isEmpty(queue)) {
+    printf("looping destroy queue");
     msg = queue_dequeue(queue);
     free(msg);
   }
@@ -49,14 +50,11 @@ Node *queue_initNode(Message *msg) {
 }
 
 Node *queue_enqueue(Queue *queue, Message *msg) {
-  if (queue->size >= queue->maxSize) {
-    fprintf(stderr, "Queue is full\n");
-    return NULL;
-  }
-  pthread_mutex_lock(&queueMutex);
-  // if (queue->size + 1 <= queue->maxSize) {
-  //   queue->size++;
+  // if (queue->size >= queue->maxSize) {
+  //   fprintf(stderr, "Queue is full\n");
+  //   return NULL;
   // }
+  pthread_mutex_lock(&queueMutex);
   queue->size++;
   pthread_mutex_unlock(&queueMutex);
 
@@ -93,6 +91,7 @@ Message *queue_dequeue(Queue *queue) {
   // save the result to return
   Message *result = malloc(sizeof(Message));
   (*result) = (*(tmp->message));
+  // Message *result = tmp->message;
 
   // removing from list and updating values
   queue->head = queue->head->next;
