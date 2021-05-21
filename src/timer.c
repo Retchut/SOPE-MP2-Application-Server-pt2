@@ -5,18 +5,18 @@
 #include <stdint.h>
 #include <time.h>
 
-int64_t start;
-int64_t end;
+long int start;
+long int end;
 
-int64_t getTime() { return time(NULL); }
+long int getTime() { return time(NULL); }
 
 void setTimer(int duration) {
   start = time(NULL);
   end = start + duration;
 }
 
-int64_t getElapsed() { return getTime() - start; }
+long int getElapsed() { return getTime() - start; }
 
-int64_t getRemaining() { return end - getTime(); }
+long int getRemaining() { return end - getTime(); }
 
-int64_t getServerRemaining() { return end - getTime() + EXTRA_SECS; }
+long int getServerRemaining() { return end + EXTRA_SECS - getTime() ; }
